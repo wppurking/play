@@ -2,15 +2,12 @@ package play.templates;
 
 import groovy.lang.Closure;
 
-import java.beans.PropertyDescriptor;
 import java.io.PrintWriter;
 import java.io.StringWriter;
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
-import java.lang.reflect.Field;
-import java.lang.reflect.Method;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.HashMap;
@@ -26,6 +23,7 @@ import play.exceptions.TemplateExecutionException;
 import play.exceptions.TemplateNotFoundException;
 import play.libs.Codec;
 import play.mvc.Http;
+import play.mvc.Mailer;
 import play.mvc.Router.ActionDefinition;
 import play.mvc.Scope.Flash;
 import play.mvc.Scope.Session;
@@ -59,7 +57,28 @@ public class FastTags {
     }
 
     public static void _jsAction(Map<?, ?> args, Closure body, PrintWriter out, ExecutableTemplate template, int fromLine) {
-		out.println("function(options) {var pattern = '" + args.get("arg").toString().replace("&amp;", "&") + "'; for(var key in options) { pattern = pattern.replace(':'+key, options[key] || ''); } return pattern }");
+        String html = "";
+        String minimize = "";
+        if(args.containsKey("minimize") && Boolean.FALSE.equals(Boolean.valueOf(args.get("minimize").toString()))){
+            minimize = "\n";
+        }
+        html += "function(options) {" + minimize;
+        html += "var pattern = '" + args.get("arg").toString().replace("&amp;", "&") + "';" + minimize;;
+        html += "for(key in options) {" + minimize;;
+        html += "var val = options[key];" + minimize;
+        // Encode URI script
+        if(args.containsKey("encodeURI") && Boolean.TRUE.equals(Boolean.valueOf(args.get("encodeURI").toString()))){ 
+            html += "val = encodeURIComponent(val.replace('&amp;', '&'));" + minimize;
+        }
+        //Custom script
+        if(args.containsKey("customScript")){
+            html += "val = " + args.get("customScript") + minimize;
+        }
+        html += "pattern = pattern.replace(':'+key, val || '');"+ minimize;
+        html += "}" + minimize;;
+        html += "return pattern;" + minimize;;
+        html += "}" + minimize;
+	out.println(html);
     }
 
     public static void _jsRoute(Map<?, ?> args, Closure body, PrintWriter out, ExecutableTemplate template, int fromLine) {
@@ -385,6 +404,25 @@ public class FastTags {
             t.internalRender(newArgs);
         } catch (TemplateNotFoundException e) {
             throw new TemplateNotFoundException(e.getPath(), template.template, fromLine);
+        }
+    }
+    
+    public static void _embeddedImage(Map<?, ?> args, Closure body,
+            PrintWriter out, ExecutableTemplate template, int fromLine) {
+        if ((args.containsKey("arg") && args.get("arg") != null)
+                || (args.containsKey("src") && args.get("src") != null)) {
+            String src = (args.containsKey("arg") && args.get("arg") != null) ? args
+                    .get("arg").toString() : args.get("src").toString();
+            if (src != null) {
+                String name = (args.containsKey("name")) ? args.get("name")
+                        .toString() : null;
+                out.print("<img src=\"" + Mailer.getEmbedddedSrc(src, name)
+                        + "\" " + serialize(args, "src", "name") + "/>");
+            }
+        } else {
+            throw new TemplateExecutionException(template.template, fromLine,
+                    "Specify a file name", new TagInternalException(
+                            "Specify a file name"));
         }
     }
 

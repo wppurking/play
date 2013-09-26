@@ -327,7 +327,7 @@ public class Router {
     }
 
     // Gets baseUrl from current request or application.baseUrl in application.conf
-    protected static String getBaseUrl() {
+    public static String getBaseUrl() {
         if (Http.Request.current() == null) {
             // No current request is present - must get baseUrl from config
             String appBaseUrl = Play.configuration.getProperty("application.baseUrl", "application.baseUrl");
@@ -449,7 +449,7 @@ public class Router {
                                 List<Object> l = (List<Object>) value;
                                 value = l.get(0);
                             }
-                            if (!value.toString().startsWith(":") && !arg.constraint.matches(value.toString())) {
+                            if (!value.toString().startsWith(":") && !arg.constraint.matches(Utils.urlEncodePath(value.toString()))) {
                                 allRequiredArgsAreHere = false;
                                 break;
                             }

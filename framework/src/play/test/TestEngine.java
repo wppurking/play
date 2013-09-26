@@ -27,6 +27,7 @@ import play.Logger;
 import play.Play;
 import play.mvc.Http.Request;
 import play.mvc.Http.Response;
+import play.mvc.Router;
 import play.mvc.Scope.RenderArgs;
 import play.vfs.VirtualFile;
 
@@ -109,7 +110,7 @@ public class TestEngine {
         }
     }
     
-    private static void initTest(Class<?> testClass) { 
+    public static void initTest(Class<?> testClass) { 
         CleanTest cleanTestAnnot = null;
         if(testClass != null ){
             cleanTestAnnot = testClass.getAnnotation(CleanTest.class) ;
@@ -127,12 +128,33 @@ public class TestEngine {
         }
         if (cleanTestAnnot == null || (cleanTestAnnot != null && cleanTestAnnot.createDefault() == true)) {
             if (Request.current() == null) {
-                Request request = Request.createRequest(null, "GET", "/", "",
-                        null, null, null, null, false, 80, "localhost", false,
-                        null, null);
+                // Use base URL to create a request for this host
+                // host => with port
+                // domain => without port
+                String host = Router.getBaseUrl();
+                String domain = null;
+                Integer port = 80;
+                boolean isSecure = false;
+                if (host == null || host.equals("application.baseUrl")) {
+                    host = "localhost" + port;
+                    domain = "localhost";
+                } else if (host.contains("http://")) {
+                    host = host.replaceAll("http://", "");
+                } else if (host.contains("https://")) {
+                    host = host.replaceAll("https://", "");
+                    port = 443;
+                    isSecure = true;         
+                }
+                int colonPos =  host.indexOf(':');
+                if(colonPos > -1){
+                    domain = host.substring(0, colonPos);
+                    port = Integer.parseInt(host.substring(colonPos+1));
+                }else{
+                   domain = host;
+                }
+                Request request = Request.createRequest(null, "GET", "/", "", null,
+                        null, null, host, false, port, domain, isSecure, null, null);
                 request.body = new ByteArrayInputStream(new byte[0]);
-                
-                Logger.trace("##### set Request");
                 Request.current.set(request);
             }
 
@@ -140,13 +162,11 @@ public class TestEngine {
                 Response response = new Response();
                 response.out = new ByteArrayOutputStream();
                 response.direct = null;
-                Logger.trace("##### set Response");
                 Response.current.set(response);
             }
 
             if (RenderArgs.current() == null) {
                 RenderArgs renderArgs = new RenderArgs();
-                Logger.trace("##### set RenderArgs");
                 RenderArgs.current.set(renderArgs);
             }
         }
